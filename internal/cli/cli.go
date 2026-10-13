@@ -14,6 +14,7 @@ import (
 const usageText = `usage:
   cidrfold merge [--format cidr|range] [FILE...]
   cidrfold subtract [--format cidr|range] A B
+  cidrfold intersect [--format cidr|range] A B
   cidrfold contains LIST ADDR...
 `
 
@@ -33,7 +34,7 @@ func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 0
 	}
 	cmd := args[0]
-	if cmd != "merge" && cmd != "subtract" && cmd != "contains" {
+	if cmd != "merge" && cmd != "subtract" && cmd != "intersect" && cmd != "contains" {
 		fmt.Fprintf(stderr, "cidrfold: unknown command %q\n", cmd)
 		return 2
 	}
@@ -79,6 +80,12 @@ func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return 2
 		}
 		return r.subtract(rest, format, stdout, stderr)
+	case "intersect":
+		if len(rest) != 2 {
+			fmt.Fprint(stderr, "cidrfold: usage: cidrfold intersect [--format cidr|range] A B\n")
+			return 2
+		}
+		return r.intersect(rest, format, stdout, stderr)
 	default:
 		if len(rest) < 2 {
 			fmt.Fprint(stderr, "cidrfold: usage: cidrfold contains LIST ADDR...\n")
@@ -157,22 +164,39 @@ func (r *runner) merge(files []string, format string, stdout, stderr io.Writer) 
 }
 
 func (r *runner) subtract(ops []string, format string, stdout, stderr io.Writer) int {
-	if ops[0] == "-" && ops[1] == "-" {
-		fmt.Fprintln(stderr, "cidrfold: only one input may be -")
-		return 2
-	}
-	a, err := r.load(ops[0])
-	if err != nil {
-		fmt.Fprintf(stderr, "cidrfold: %v\n", err)
-		return 2
-	}
-	b, err := r.load(ops[1])
-	if err != nil {
-		fmt.Fprintf(stderr, "cidrfold: %v\n", err)
+	a, b, ok := r.loadPair(ops, stderr)
+	if !ok {
 		return 2
 	}
 	io.WriteString(stdout, render(ipset.Subtract(a, b), format))
 	return 0
+}
+
+func (r *runner) intersect(ops []string, format string, stdout, stderr io.Writer) int {
+	a, b, ok := r.loadPair(ops, stderr)
+	if !ok {
+		return 2
+	}
+	io.WriteString(stdout, render(ipset.Intersect(a, b), format))
+	return 0
+}
+
+func (r *runner) loadPair(ops []string, stderr io.Writer) ([]ipset.Interval, []ipset.Interval, bool) {
+	if ops[0] == "-" && ops[1] == "-" {
+		fmt.Fprintln(stderr, "cidrfold: only one input may be -")
+		return nil, nil, false
+	}
+	a, err := r.load(ops[0])
+	if err != nil {
+		fmt.Fprintf(stderr, "cidrfold: %v\n", err)
+		return nil, nil, false
+	}
+	b, err := r.load(ops[1])
+	if err != nil {
+		fmt.Fprintf(stderr, "cidrfold: %v\n", err)
+		return nil, nil, false
+	}
+	return a, b, true
 }
 
 func (r *runner) contains(args []string, stdout, stderr io.Writer) int {

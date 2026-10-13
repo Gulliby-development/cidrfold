@@ -170,6 +170,118 @@ func TestWorkedExamples(t *testing.T) {
 	}
 }
 
+func TestIntersect(t *testing.T) {
+	cases := []struct {
+		name       string
+		a, b       string
+		want       []Interval
+		wantCIDRs  []string
+		wantRanges []string
+	}{
+		{
+			name: "worked example",
+			a:    "10.0.0.0/23",
+			b:    "10.0.0.128/25\n10.0.1.0/25\n10.0.3.0/24",
+			want: []Interval{iv(0x0A000080, 0x0A00017F)},
+			wantCIDRs: []string{
+				"10.0.0.128/25",
+				"10.0.1.0/25",
+			},
+			wantRanges: []string{"10.0.0.128-10.0.1.127"},
+		},
+		{
+			name:       "maximum address boundary",
+			a:          "255.255.255.0/24",
+			b:          "255.255.255.128/25",
+			want:       []Interval{iv(0xFFFFFF80, 0xFFFFFFFF)},
+			wantCIDRs:  []string{"255.255.255.128/25"},
+			wantRanges: []string{"255.255.255.128-255.255.255.255"},
+		},
+		{
+			name:       "zero through maximum host",
+			a:          "0.0.0.0/0",
+			b:          "255.255.255.255",
+			want:       []Interval{iv(0xFFFFFFFF, 0xFFFFFFFF)},
+			wantCIDRs:  []string{"255.255.255.255/32"},
+			wantRanges: []string{"255.255.255.255-255.255.255.255"},
+		},
+		{
+			name:       "nested interval",
+			a:          "10.0.0.0/24",
+			b:          "10.0.0.64/26",
+			want:       []Interval{iv(0x0A000040, 0x0A00007F)},
+			wantCIDRs:  []string{"10.0.0.64/26"},
+			wantRanges: []string{"10.0.0.64-10.0.0.127"},
+		},
+		{
+			name: "adjacent but disjoint",
+			a:    "10.0.0.0",
+			b:    "10.0.0.1",
+		},
+		{name: "empty left", a: "", b: "10.0.0.0/24"},
+		{name: "empty right", a: "10.0.0.0/24", b: ""},
+		{
+			name: "unsorted and overlapping inputs",
+			a:    "10.0.0.16/28\n10.0.0.0/28\n10.0.0.8/29",
+			b:    "10.0.0.24/29\n10.0.0.8/30\n10.0.0.0/30\n10.0.0.8/30",
+			want: []Interval{
+				iv(0x0A000000, 0x0A000003),
+				iv(0x0A000008, 0x0A00000B),
+				iv(0x0A000018, 0x0A00001F),
+			},
+			wantCIDRs: []string{
+				"10.0.0.0/30",
+				"10.0.0.8/30",
+				"10.0.0.24/29",
+			},
+			wantRanges: []string{
+				"10.0.0.0-10.0.0.3",
+				"10.0.0.8-10.0.0.11",
+				"10.0.0.24-10.0.0.31",
+			},
+		},
+		{
+			name: "one interval cut by several intervals",
+			a:    "10.0.0.0/24",
+			b:    "10.0.0.32/27\n10.0.0.96/27\n10.0.0.192/26",
+			want: []Interval{
+				iv(0x0A000020, 0x0A00003F),
+				iv(0x0A000060, 0x0A00007F),
+				iv(0x0A0000C0, 0x0A0000FF),
+			},
+			wantCIDRs: []string{
+				"10.0.0.32/27",
+				"10.0.0.96/27",
+				"10.0.0.192/26",
+			},
+			wantRanges: []string{
+				"10.0.0.32-10.0.0.63",
+				"10.0.0.96-10.0.0.127",
+				"10.0.0.192-10.0.0.255",
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := Intersect(mustParse(t, c.a), mustParse(t, c.b))
+			if !reflect.DeepEqual(got, c.want) {
+				t.Fatalf("intervals: got %v want %v", got, c.want)
+			}
+			if got := blocksStr(CIDRs(got)); !reflect.DeepEqual(got, c.wantCIDRs) {
+				t.Errorf("CIDRs: got %v want %v", got, c.wantCIDRs)
+			}
+			var ranges []string
+			for _, r := range Ranges(got) {
+				ranges = append(ranges, FormatRange(r))
+			}
+			if !reflect.DeepEqual(ranges, c.wantRanges) {
+				t.Errorf("ranges: got %v want %v", ranges, c.wantRanges)
+			}
+		})
+	}
+}
+
 func TestLookup(t *testing.T) {
 	bs := CIDRs(mustParse(t, "10.0.0.0/23\n255.255.255.255\n0.0.0.0"))
 	cases := []struct {
@@ -283,14 +395,18 @@ func TestOracle(t *testing.T) {
 		checkBlocks(t, "merge", CIDRs(a), as)
 		checkRanges(t, "merge ranges", Ranges(a), as)
 
-		var diff, union [1024]bool
+		var diff, intersection, union [1024]bool
 		for j := range diff {
 			diff[j] = as[j] && !bs[j]
+			intersection[j] = as[j] && bs[j]
 			union[j] = as[j] || bs[j]
 		}
 		d := Subtract(a, b)
 		checkBlocks(t, "subtract", CIDRs(d), diff)
 		checkRanges(t, "subtract ranges", Ranges(d), diff)
+		in := Intersect(a, b)
+		checkBlocks(t, "intersect", CIDRs(in), intersection)
+		checkRanges(t, "intersect ranges", Ranges(in), intersection)
 		checkBlocks(t, "union", CIDRs(append(append([]Interval{}, a...), b...)), union)
 
 		cover := CIDRs(a)

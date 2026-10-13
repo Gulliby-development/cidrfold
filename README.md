@@ -2,7 +2,7 @@
 
 # cidrfold
 
-cidrfold is a small command-line tool that merges, subtracts and queries lists of IPv4 CIDR blocks. It is written for people who maintain firewall allow-lists, security groups or ban lists. It uses only the Go standard library and runs on Windows, macOS and Linux.
+cidrfold is a small command-line tool that merges, subtracts, intersects and queries lists of IPv4 CIDR blocks. It is written for people who maintain firewall allow-lists, security groups or ban lists. It uses only the Go standard library and runs on Windows, macOS and Linux.
 
 [![CI](https://github.com/Gulliby-development/cidrfold/actions/workflows/ci.yml/badge.svg)](https://github.com/Gulliby-development/cidrfold/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -27,6 +27,7 @@ go build -o cidrfold .
 ```
 cidrfold merge [--format cidr|range] [FILE...]
 cidrfold subtract [--format cidr|range] A B
+cidrfold intersect [--format cidr|range] A B
 cidrfold contains LIST ADDR...
 ```
 
@@ -87,6 +88,23 @@ With `--format range`:
 
 An empty result prints nothing and exits 0.
 
+### intersect
+
+Prints the minimal CIDR cover of addresses present in both A and B. `10.0.0.0/23` intersected with `10.0.0.128/25`, `10.0.1.0/25` and `10.0.3.0/24` gives:
+
+```
+10.0.0.128/25
+10.0.1.0/25
+```
+
+With `--format range`:
+
+```
+10.0.0.128-10.0.1.127
+```
+
+An empty result prints nothing and exits 0.
+
 ### contains
 
 Reads LIST like `merge`, then reports each ADDR in argument order. With LIST `10.0.0.0/23` and the addresses `10.0.1.77 10.0.2.1`:
@@ -104,7 +122,7 @@ Reads LIST like `merge`, then reports each ADDR in argument order. With LIST `10
 | `--format range` | Print `first-last` address ranges. Also `--format=range`. |
 | `--help` | Print the usage. |
 
-`--format` applies to `merge` and `subtract`.
+`--format` applies to `merge`, `subtract` and `intersect`.
 
 ## Input format
 

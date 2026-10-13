@@ -166,6 +166,88 @@ func TestSubtractStdin(t *testing.T) {
 	}
 }
 
+func TestIntersect(t *testing.T) {
+	dir := t.TempDir()
+	a := writeFile(t, dir, "a.txt", lines("10.0.0.0/23"))
+	b := writeFile(t, dir, "b.txt", lines("10.0.0.128/25", "10.0.1.0/25", "10.0.3.0/24"))
+
+	cases := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"cidr", []string{"intersect", a, b}, lines("10.0.0.128/25", "10.0.1.0/25")},
+		{"range", []string{"intersect", "--format", "range", a, b}, lines("10.0.0.128-10.0.1.127")},
+		{"range equals", []string{"intersect", "--format=range", a, b}, lines("10.0.0.128-10.0.1.127")},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			code, out, errs := run(t, "", c.args...)
+			if code != 0 || out != c.want || errs != "" {
+				t.Fatalf("code=%d out=%q err=%q want %q", code, out, errs, c.want)
+			}
+		})
+	}
+
+	code, out, errs := run(t, lines("10.0.0.0/23"), "intersect", "-", b)
+	if code != 0 || out != lines("10.0.0.128/25", "10.0.1.0/25") || errs != "" {
+		t.Fatalf("A from stdin: code=%d out=%q err=%q", code, out, errs)
+	}
+	code, out, errs = run(t, lines("10.0.1.0/25"), "intersect", a, "-")
+	if code != 0 || out != lines("10.0.1.0/25") || errs != "" {
+		t.Fatalf("B from stdin: code=%d out=%q err=%q", code, out, errs)
+	}
+	code, out, errs = run(t, "10.0.0.1\n", "intersect", "-", "-")
+	if code != 2 || out != "" || errs != "cidrfold: only one input may be -\n" {
+		t.Fatalf("two stdin inputs: code=%d out=%q err=%q", code, out, errs)
+	}
+
+	empty := writeFile(t, dir, "empty.txt", "")
+	code, out, errs = run(t, "", "intersect", empty, b)
+	if code != 0 || out != "" || errs != "" {
+		t.Fatalf("empty result: code=%d out=%q err=%q", code, out, errs)
+	}
+	disjoint := writeFile(t, dir, "disjoint.txt", lines("10.0.2.0/24"))
+	code, out, errs = run(t, "", "intersect", a, disjoint)
+	if code != 0 || out != "" || errs != "" {
+		t.Fatalf("disjoint result: code=%d out=%q err=%q", code, out, errs)
+	}
+
+	maxPrefix := writeFile(t, dir, "max-prefix.txt", lines("255.255.255.0/24"))
+	maxHost := writeFile(t, dir, "max-host.txt", lines("255.255.255.128/25"))
+	code, out, errs = run(t, "", "intersect", maxPrefix, maxHost)
+	if code != 0 || out != lines("255.255.255.128/25") || errs != "" {
+		t.Fatalf("maximum address: code=%d out=%q err=%q", code, out, errs)
+	}
+	all := writeFile(t, dir, "all.txt", lines("0.0.0.0/0"))
+	lastHost := writeFile(t, dir, "last-host.txt", lines("255.255.255.255"))
+	code, out, errs = run(t, "", "intersect", all, lastHost)
+	if code != 0 || out != lines("255.255.255.255/32") || errs != "" {
+		t.Fatalf("/0 with maximum host: code=%d out=%q err=%q", code, out, errs)
+	}
+
+	missing := filepath.Join(dir, "missing.txt")
+	code, out, errs = run(t, "", "intersect", missing, b)
+	if code != 2 || out != "" || !strings.HasPrefix(errs, "cidrfold: "+missing+": ") || strings.Count(errs, "\n") != 1 {
+		t.Fatalf("missing file: code=%d out=%q err=%q", code, out, errs)
+	}
+	invalidA := writeFile(t, dir, "invalid-a.txt", "bad-a\n")
+	invalidB := writeFile(t, dir, "invalid-b.txt", "bad-b\n")
+	code, out, errs = run(t, "", "intersect", invalidA, invalidB)
+	wantErr := "cidrfold: " + invalidA + ":1: invalid entry \"bad-a\"\n"
+	if code != 2 || out != "" || errs != wantErr {
+		t.Fatalf("invalid entries: code=%d out=%q err=%q want %q", code, out, errs, wantErr)
+	}
+
+	usage := "cidrfold: usage: cidrfold intersect [--format cidr|range] A B\n"
+	for _, args := range [][]string{{"intersect", a}, {"intersect", a, b, a}} {
+		code, out, errs = run(t, "", args...)
+		if code != 2 || out != "" || errs != usage {
+			t.Errorf("%v: code=%d out=%q err=%q want %q", args, code, out, errs, usage)
+		}
+	}
+}
+
 func TestStdinReadOnce(t *testing.T) {
 	code, out, errs := run(t, "10.0.0.1\n", "merge", "-", "-")
 	if code != 0 || out != lines("10.0.0.1/32") || errs != "" {
@@ -214,6 +296,9 @@ func TestOptionErrors(t *testing.T) {
 		{"bogus"},
 		{"subtract", f},
 		{"subtract", f, f, f},
+		{"intersect", f},
+		{"intersect", f, f, f},
+		{"intersect", "-x", "a", "b"},
 		{"contains", f},
 		{"contains"},
 	}
@@ -230,6 +315,7 @@ func TestInvalidFormat(t *testing.T) {
 		{"merge", "--format", "xml"},
 		{"merge", "--format=xml"},
 		{"subtract", "--format=xml", "a", "b"},
+		{"intersect", "--format=xml", "a", "b"},
 	} {
 		code, out, errs := run(t, "", args...)
 		if code != 2 || out != "" || errs != "cidrfold: invalid --format \"xml\"\n" {
@@ -251,7 +337,7 @@ func TestHelpAndUsage(t *testing.T) {
 	if code != 0 || errs != "" {
 		t.Fatalf("help code=%d err=%q", code, errs)
 	}
-	for _, w := range []string{"merge", "subtract", "contains"} {
+	for _, w := range []string{"merge", "subtract", "intersect", "contains"} {
 		if !strings.Contains(out, w) {
 			t.Errorf("usage missing %q", w)
 		}

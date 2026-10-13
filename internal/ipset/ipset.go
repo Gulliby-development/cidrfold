@@ -174,6 +174,36 @@ func Subtract(a, b []Interval) []Interval {
 	return out
 }
 
+// Intersect returns the addresses present in both a and b.
+func Intersect(a, b []Interval) []Interval {
+	a, b = Merge(a), Merge(b)
+	var out []Interval
+	for i, j := 0, 0; i < len(a) && j < len(b); {
+		first := a[i].First
+		if b[j].First > first {
+			first = b[j].First
+		}
+		last := a[i].Last
+		if b[j].Last < last {
+			last = b[j].Last
+		}
+		if first <= last {
+			out = append(out, Interval{first, last})
+		}
+
+		switch {
+		case a[i].Last < b[j].Last:
+			i++
+		case b[j].Last < a[i].Last:
+			j++
+		default:
+			i++
+			j++
+		}
+	}
+	return out
+}
+
 // CIDRs returns the minimal CIDR cover of the merged intervals.
 func CIDRs(in []Interval) []Block {
 	var out []Block
