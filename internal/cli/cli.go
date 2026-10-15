@@ -41,29 +41,33 @@ func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	format := "cidr"
 	rest := args[1:]
 	if cmd != "contains" {
-		for len(rest) > 0 && strings.HasPrefix(rest[0], "-") && rest[0] != "-" {
-			a := rest[0]
+		operands := make([]string, 0, len(rest))
+		for i := 0; i < len(rest); i++ {
+			a := rest[i]
 			switch {
 			case a == "--format":
-				if len(rest) < 2 {
+				if i+1 >= len(rest) {
 					fmt.Fprintln(stderr, "cidrfold: --format requires a value")
 					return 2
 				}
-				format = rest[1]
-				rest = rest[2:]
+				i++
+				format = rest[i]
 			case strings.HasPrefix(a, "--format="):
 				format = strings.TrimPrefix(a, "--format=")
-				rest = rest[1:]
+			case strings.HasPrefix(a, "-") && a != "-":
+				fmt.Fprintf(stderr, "cidrfold: unknown option %q\n", a)
+				return 2
 			default:
+				operands = append(operands, a)
+			}
+		}
+		rest = operands
+	} else {
+		for _, a := range rest {
+			if strings.HasPrefix(a, "-") && a != "-" {
 				fmt.Fprintf(stderr, "cidrfold: unknown option %q\n", a)
 				return 2
 			}
-		}
-	}
-	for _, a := range rest {
-		if strings.HasPrefix(a, "-") && a != "-" {
-			fmt.Fprintf(stderr, "cidrfold: unknown option %q\n", a)
-			return 2
 		}
 	}
 	if format != "cidr" && format != "range" {

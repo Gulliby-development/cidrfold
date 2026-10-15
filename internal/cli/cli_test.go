@@ -287,7 +287,7 @@ func TestOptionErrors(t *testing.T) {
 	dir := t.TempDir()
 	f := writeFile(t, dir, "f.txt", "10.0.0.1\n")
 	cases := [][]string{
-		{"merge", f, "--format", "cidr"},
+		{"merge", f, "--format"},
 		{"merge", f, "-x"},
 		{"merge", "-x"},
 		{"merge", "--bogus", f},

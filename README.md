@@ -31,7 +31,7 @@ cidrfold intersect [--format cidr|range] A B
 cidrfold contains LIST ADDR...
 ```
 
-`--format` is accepted as `--format VALUE` or `--format=VALUE` (default `cidr`). Options go after the command name and before the positional arguments. A FILE, A, B or LIST that is `-` means standard input, which is read once. `merge` with no FILE reads standard input. `cidrfold --help` prints the usage.
+`--format` is accepted as `--format VALUE` or `--format=VALUE` (default `cidr`). Options may stand anywhere after the command name, among the positional arguments too, as in `cidrfold merge a.txt b.txt --format range`; an option that takes a value uses the next argument whatever it looks like, and the last `--format` wins. A FILE, A, B or LIST that is `-` means standard input, which is read once. `merge` with no FILE reads standard input. `cidrfold --help` prints the usage.
 
 ### merge
 
