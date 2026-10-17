@@ -239,7 +239,7 @@ func TestIntersect(t *testing.T) {
 		t.Fatalf("invalid entries: code=%d out=%q err=%q want %q", code, out, errs, wantErr)
 	}
 
-	usage := "cidrfold: usage: cidrfold intersect [--format cidr|range] A B\n"
+	usage := "cidrfold: usage: cidrfold intersect [--format cidr|range|count] A B\n"
 	for _, args := range [][]string{{"intersect", a}, {"intersect", a, b, a}} {
 		code, out, errs = run(t, "", args...)
 		if code != 2 || out != "" || errs != usage {

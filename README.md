@@ -25,9 +25,9 @@ go build -o cidrfold .
 ## Commands
 
 ```
-cidrfold merge [--format cidr|range] [FILE...]
-cidrfold subtract [--format cidr|range] A B
-cidrfold intersect [--format cidr|range] A B
+cidrfold merge [--format cidr|range|count] [FILE...]
+cidrfold subtract [--format cidr|range|count] A B
+cidrfold intersect [--format cidr|range|count] A B
 cidrfold contains LIST ADDR...
 ```
 
@@ -114,12 +114,31 @@ Reads LIST like `merge`, then reports each ADDR in argument order. With LIST `10
 10.0.2.1 no
 ```
 
+## Counting addresses
+
+Use `--format count` for the size of a result: `merge`, `subtract` and `intersect` then print one line with the number of addresses in the result, a decimal number from 0 to 4294967296, instead of the blocks.
+
+With the five lines `10.0.0.0/25`, `10.0.0.128/25`, `10.0.1.0/24`, `192.168.1.5` and `192.168.1.4` in `a.txt`, `cidrfold merge --format count a.txt` prints:
+
+```
+514
+```
+
+With `10.0.0.0/24` in `c.txt` and `10.0.0.64/26` in `b.txt`, `cidrfold subtract --format=count c.txt b.txt` prints:
+
+```
+192
+```
+
+An empty result prints `0` (the other formats print nothing) and exits 0.
+
 ## Options
 
 | Option | Description |
 |---|---|
 | `--format cidr` | Print CIDR blocks (default). Also `--format=cidr`. |
 | `--format range` | Print `first-last` address ranges. Also `--format=range`. |
+| `--format count` | Print the number of addresses in the result as one decimal number. Also `--format=count`. |
 | `--help` | Print the usage. |
 
 `--format` applies to `merge`, `subtract` and `intersect`.

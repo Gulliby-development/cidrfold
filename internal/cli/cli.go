@@ -12,9 +12,9 @@ import (
 )
 
 const usageText = `usage:
-  cidrfold merge [--format cidr|range] [FILE...]
-  cidrfold subtract [--format cidr|range] A B
-  cidrfold intersect [--format cidr|range] A B
+  cidrfold merge [--format cidr|range|count] [FILE...]
+  cidrfold subtract [--format cidr|range|count] A B
+  cidrfold intersect [--format cidr|range|count] A B
   cidrfold contains LIST ADDR...
 `
 
@@ -70,7 +70,7 @@ func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			}
 		}
 	}
-	if format != "cidr" && format != "range" {
+	if format != "cidr" && format != "range" && format != "count" {
 		fmt.Fprintf(stderr, "cidrfold: invalid --format %q\n", format)
 		return 2
 	}
@@ -80,13 +80,13 @@ func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return r.merge(rest, format, stdout, stderr)
 	case "subtract":
 		if len(rest) != 2 {
-			fmt.Fprint(stderr, "cidrfold: usage: cidrfold subtract [--format cidr|range] A B\n")
+			fmt.Fprint(stderr, "cidrfold: usage: cidrfold subtract [--format cidr|range|count] A B\n")
 			return 2
 		}
 		return r.subtract(rest, format, stdout, stderr)
 	case "intersect":
 		if len(rest) != 2 {
-			fmt.Fprint(stderr, "cidrfold: usage: cidrfold intersect [--format cidr|range] A B\n")
+			fmt.Fprint(stderr, "cidrfold: usage: cidrfold intersect [--format cidr|range|count] A B\n")
 			return 2
 		}
 		return r.intersect(rest, format, stdout, stderr)
@@ -135,6 +135,14 @@ func (r *runner) load(name string) ([]ipset.Interval, error) {
 }
 
 func render(ivs []ipset.Interval, format string) string {
+	if format == "count" {
+		var total uint64
+		for _, iv := range ipset.Ranges(ivs) {
+			total += iv.Last - iv.First + 1
+		}
+		return fmt.Sprintf("%d\n", total)
+	}
+
 	var sb strings.Builder
 	if format == "range" {
 		for _, iv := range ipset.Ranges(ivs) {

@@ -42,7 +42,7 @@ func TestFormatAnywhereSuccess(t *testing.T) {
 
 func TestFormatAnywhereErrors(t *testing.T) {
 	f := writeFile(t, t.TempDir(), "f.txt", "10.0.0.1\n")
-	usage := "cidrfold: usage: cidrfold subtract [--format cidr|range] A B\n"
+	usage := "cidrfold: usage: cidrfold subtract [--format cidr|range|count] A B\n"
 	cases := []struct {
 		name string
 		args []string
