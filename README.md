@@ -12,6 +12,8 @@ Allow-lists and ban lists grow by copy and paste until they hold overlapping and
 
 ## Install
 
+cidrfold needs Go 1.22 or newer.
+
 ```
 go install github.com/Gulliby-development/cidrfold@latest
 ```
