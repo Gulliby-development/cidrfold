@@ -136,6 +136,7 @@ func TestCountErrorsAndUsage(t *testing.T) {
 		"  cidrfold merge [--format cidr|range|count] [FILE...]\n" +
 		"  cidrfold subtract [--format cidr|range|count] A B\n" +
 		"  cidrfold intersect [--format cidr|range|count] A B\n" +
+		"  cidrfold complement [--format cidr|range|count] [FILE...]\n" +
 		"  cidrfold contains LIST ADDR...\n"
 	code, out, errs := run(t, "", "--help")
 	if code != 0 || out != wantUsage || errs != "" {
