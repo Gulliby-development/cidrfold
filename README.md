@@ -30,10 +30,11 @@ go build -o cidrfold .
 cidrfold merge [--format cidr|range|count] [FILE...]
 cidrfold subtract [--format cidr|range|count] A B
 cidrfold intersect [--format cidr|range|count] A B
+cidrfold complement [--format cidr|range|count] [FILE...]
 cidrfold contains LIST ADDR...
 ```
 
-`--format` is accepted as `--format VALUE` or `--format=VALUE` (default `cidr`). Options may stand anywhere after the command name, among the positional arguments too, as in `cidrfold merge a.txt b.txt --format range`; an option that takes a value uses the next argument whatever it looks like, and the last `--format` wins. A FILE, A, B or LIST that is `-` means standard input, which is read once. `merge` with no FILE reads standard input. `cidrfold --help` prints the usage.
+`--format` is accepted as `--format VALUE` or `--format=VALUE` (default `cidr`). Options may stand anywhere after the command name, among the positional arguments too, as in `cidrfold merge a.txt b.txt --format range`; an option that takes a value uses the next argument whatever it looks like, and the last `--format` wins. A FILE, A, B or LIST that is `-` means standard input, which is read once. `merge` and `complement` with no FILE read standard input. `cidrfold --help` prints the usage.
 
 ### merge
 
@@ -107,6 +108,23 @@ With `--format range`:
 
 An empty result prints nothing and exits 0.
 
+### complement
+
+Reads FILE... like `merge` and prints the minimal CIDR cover of every IPv4 address that is not in the list, ascending. The input lines `0.0.0.0/1`, `128.0.0.0/2` and `192.0.0.0/3` give:
+
+```
+224.0.0.0/3
+```
+
+With the single line `10.0.0.0/8` and `--format range`:
+
+```
+0.0.0.0-9.255.255.255
+11.0.0.0-255.255.255.255
+```
+
+With `--format count` the same input prints `4278190080`. An empty list gives `0.0.0.0/0`. A list that covers the whole address space gives no output (`0` with `--format count`) and exits 0.
+
 ### contains
 
 Reads LIST like `merge`, then reports each ADDR in argument order. With LIST `10.0.0.0/23` and the addresses `10.0.1.77 10.0.2.1`:
@@ -118,7 +136,7 @@ Reads LIST like `merge`, then reports each ADDR in argument order. With LIST `10
 
 ## Counting addresses
 
-Use `--format count` for the size of a result: `merge`, `subtract` and `intersect` then print one line with the number of addresses in the result, a decimal number from 0 to 4294967296, instead of the blocks.
+Use `--format count` for the size of a result: `merge`, `subtract`, `intersect` and `complement` then print one line with the number of addresses in the result, a decimal number from 0 to 4294967296, instead of the blocks.
 
 With the five lines `10.0.0.0/25`, `10.0.0.128/25`, `10.0.1.0/24`, `192.168.1.5` and `192.168.1.4` in `a.txt`, `cidrfold merge --format count a.txt` prints:
 
@@ -143,7 +161,7 @@ An empty result prints `0` (the other formats print nothing) and exits 0.
 | `--format count` | Print the number of addresses in the result as one decimal number. Also `--format=count`. |
 | `--help` | Print the usage. |
 
-`--format` applies to `merge`, `subtract` and `intersect`.
+`--format` applies to `merge`, `subtract`, `intersect` and `complement`.
 
 ## Input format
 

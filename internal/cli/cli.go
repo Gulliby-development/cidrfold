@@ -15,6 +15,7 @@ const usageText = `usage:
   cidrfold merge [--format cidr|range|count] [FILE...]
   cidrfold subtract [--format cidr|range|count] A B
   cidrfold intersect [--format cidr|range|count] A B
+  cidrfold complement [--format cidr|range|count] [FILE...]
   cidrfold contains LIST ADDR...
 `
 
@@ -34,7 +35,7 @@ func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 0
 	}
 	cmd := args[0]
-	if cmd != "merge" && cmd != "subtract" && cmd != "intersect" && cmd != "contains" {
+	if cmd != "merge" && cmd != "subtract" && cmd != "intersect" && cmd != "complement" && cmd != "contains" {
 		fmt.Fprintf(stderr, "cidrfold: unknown command %q\n", cmd)
 		return 2
 	}
@@ -84,6 +85,8 @@ func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return 2
 		}
 		return r.subtract(rest, format, stdout, stderr)
+	case "complement":
+		return r.complement(rest, format, stdout, stderr)
 	case "intersect":
 		if len(rest) != 2 {
 			fmt.Fprint(stderr, "cidrfold: usage: cidrfold intersect [--format cidr|range|count] A B\n")
@@ -158,7 +161,7 @@ func render(ivs []ipset.Interval, format string) string {
 	return sb.String()
 }
 
-func (r *runner) merge(files []string, format string, stdout, stderr io.Writer) int {
+func (r *runner) union(files []string, stderr io.Writer) ([]ipset.Interval, bool) {
 	if len(files) == 0 {
 		files = []string{"-"}
 	}
@@ -167,11 +170,28 @@ func (r *runner) merge(files []string, format string, stdout, stderr io.Writer) 
 		ivs, err := r.load(f)
 		if err != nil {
 			fmt.Fprintf(stderr, "cidrfold: %v\n", err)
-			return 2
+			return nil, false
 		}
 		all = append(all, ivs...)
 	}
+	return all, true
+}
+
+func (r *runner) merge(files []string, format string, stdout, stderr io.Writer) int {
+	all, ok := r.union(files, stderr)
+	if !ok {
+		return 2
+	}
 	io.WriteString(stdout, render(all, format))
+	return 0
+}
+
+func (r *runner) complement(files []string, format string, stdout, stderr io.Writer) int {
+	all, ok := r.union(files, stderr)
+	if !ok {
+		return 2
+	}
+	io.WriteString(stdout, render(ipset.Complement(all), format))
 	return 0
 }
 

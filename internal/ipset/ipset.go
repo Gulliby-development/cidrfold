@@ -174,6 +174,11 @@ func Subtract(a, b []Interval) []Interval {
 	return out
 }
 
+// Complement returns the addresses of the whole IPv4 space that are not in in.
+func Complement(in []Interval) []Interval {
+	return Subtract([]Interval{{0, 0xFFFFFFFF}}, in)
+}
+
 // Intersect returns the addresses present in both a and b.
 func Intersect(a, b []Interval) []Interval {
 	a, b = Merge(a), Merge(b)
